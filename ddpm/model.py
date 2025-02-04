@@ -4,8 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-
-
 class TimeEmbedding(nn.Module):
     def __init__(self, T, dim_in, dim_out):
         super().__init__()
@@ -144,7 +142,7 @@ class DownSample(nn.Module):
         torch.nn.init.xavier_uniform_(self.downsample.weight)
         torch.nn.init.zeros_(self.downsample.bias)
         
-    def forward(self, x):
+    def forward(self, x, t):
         x = self.downsample(x)
         return x
     
@@ -158,7 +156,7 @@ class UpSample(nn.Module):
         torch.nn.init.xavier_uniform_(self.upsample.weight)
         torch.nn.init.zeros_(self.upsample.bias)
         
-    def forward(self, x):
+    def forward(self, x, t):
         _, _, H, W = x.shape
         x = F.interpolate(x, scale_factor=2, mode="nearest")
         x = self.upsample(x)
@@ -200,6 +198,7 @@ class UNet(nn.Module):
             ResBlock(curr_dim, curr_dim, temb_dim, dropout, attn=True),
             ResBlock(curr_dim, curr_dim, temb_dim, dropout, attn=False)
         ])
+
         
         self.upblocks = nn.ModuleList()
         for idx, scale in reversed(list(enumerate(dim_scale))):
@@ -218,17 +217,49 @@ class UNet(nn.Module):
             Swish(),
             nn.Conv2d(curr_dim, 3, kernel_size=3, stride=1, padding=1)
         )
+
+        self.initialize()
         
     def initialize(self):
-        torch.nn.init.xavier_uniform_()
-                
-                
-                
+        torch.nn.init.xavier_uniform_(self.head.weight)
+        torch.nn.init.zeros_(self.head.bias)
+        torch.nn.init.xavier_uniform_(self.tail[-1].weight)
+        torch.nn.init.zeros_(self.tail[-1].bias)
+
+    def forward(self, x, t):
+        temb = self.time_embedding(t)
+
+        h = self.head(x)
+
+        h_list = [h]
+
+        for layer in self.downblocks:
+            h = layer(h, temb)
+            h_list.append(h)
+
+        for layer in self.middleblocks:
+            h = layer(h, temb)
+        
+        for layer in self.upblocks:
+            if isinstance(layer, ResBlock):
+                h = torch.cat([h, h_list.pop()], dim=1)
+            h = layer(h, temb)
+
+        h = self.tail(h)
+
+        assert len(h_list) == 0
+        return h
 
         
 if __name__ == "__main__":
-    timeembed = TimeEmbedding(1000, 256, 128)
-    # print(torch.arange(0, 256, step=2))
+    batch_size = 1
+    model = UNet(
+        T=1000, dim=128, dim_scale=[1, 2, 2, 2], attn=[1],
+        num_res_blocks=2, dropout=0.1)
+    x = torch.randn(batch_size, 3, 32, 32)
+    t = torch.randint(1000, (batch_size, ))
+    y = model(x, t)
+    print(y.shape)
     
         
         
