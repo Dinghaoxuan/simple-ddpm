@@ -7,6 +7,7 @@ from torchvision import transforms
 
 from model import UNet
 from scheduler import GradualWarmupScheduler
+from diffusion import GaussianDiffusionTrainer
 
 
 def train(model_config):
@@ -37,7 +38,7 @@ def train(model_config):
                      dim_scale=model_config["dim_scale"], 
                      attn=model_config["attn"],
                      num_res_blocks=model_config["num_res_blocks"],
-                     dropout=model_config["dropout"])
+                     dropout=model_config["dropout"]).to(device)
     
     if model_config["load_weight"] is not None:
         model_dict = torch.load(os.path.join(model_config["save_dir"], model_config["load_weight"]), map_location=device)
@@ -48,5 +49,12 @@ def train(model_config):
                                                               T_max=model_config["epoch"],
                                                               eta_min=0,
                                                               last_epoch=-1)
-    # warmup_scheduler = 
+    warmup_scheduler = GradualWarmupScheduler(optimizer=optimizer, 
+                                              multiplier=model_config["multiplier"],
+                                              warm_epoch=model_config["epoch"] // 10,
+                                              after_scheduler=cosine_scheduler)
+    
+    trainer = GaussianDiffusionTrainer(net_model, model_config["beta_1"], model_config["beta_T"], model_config["T"]).to(device)
+    
+    
     
