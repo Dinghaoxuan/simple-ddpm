@@ -2,7 +2,7 @@ from ddpm.train import train, eval
 
 def main(model_config=None):
     modelConfig = {
-        "state": "test",
+        "state": "train",
         "epoch": 200,
         "batch_size": 80,
         "T": 1000,
@@ -18,9 +18,9 @@ def main(model_config=None):
         "img_size": 32,
         "clip_grad": 1.0,
         "device": "cuda:0",
-        "load_weight": "/root/simple-ddpm/exp/ckpt_17.pt",
+        "load_weight": None,
         "save_dir": "/root/autodl-tmp/simple-ddpm/exp/",
-        "test_load_weight": "ckpt_64.pt",
+        "test_load_weight": None,
         "sampled_dir": "/root/autodl-tmp/simple-ddpm/sampledimgs",
         "sampled_noise_name": "noise_image.png",
         "sampled_image_name": "sampled_image.png",
